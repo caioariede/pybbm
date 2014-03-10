@@ -30,8 +30,6 @@ PYBB_DEFAULT_AVATAR_URL = getattr(settings,'PYBB_DEFAULT_AVATAR_URL',
 
 PYBB_DEFAULT_TITLE = getattr(settings, 'PYBB_DEFAULT_TITLE', 'PYBB Powered Forum')
 
-PYBB_CUSTOM_APP = getattr(settings, 'PYBB_CUSTOM_APP', None)
-
 import bbcode
 from markdown import Markdown
 from django.utils.html import urlize
