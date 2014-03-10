@@ -18,7 +18,8 @@ from django.utils.translation import ugettext as _
 from django.utils import dateformat
 from django.utils.timezone import timedelta
 from django.utils.timezone import now as tznow
-from pybb.util import build_cache_key
+from pybb_core.util import build_cache_key
+from pybb_core.loading import get_models
 
 try:
     import pytils
@@ -26,9 +27,13 @@ try:
 except ImportError:
     pytils_enabled = False
 
-from pybb.models import TopicReadTracker, ForumReadTracker, PollAnswerUser, Topic, Post
-from pybb.permissions import perms
-from pybb import defaults, util
+from pybb_core.permissions import perms
+from pybb_core import defaults, util
+
+
+TopicReadTracker, ForumReadTracker, PollAnswerUser, Topic, Post = get_models([
+    'TopicReadTracker', 'ForumReadTracker', 'PollAnswerUser', 'Topic', 'Post'
+])
 
 
 register = template.Library()

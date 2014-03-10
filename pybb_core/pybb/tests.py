@@ -15,12 +15,13 @@ from django.db.models import Q
 from django.test import TestCase
 from django.test.client import Client
 from django.test.utils import override_settings
-from pybb import permissions, views as pybb_views
-from pybb.templatetags.pybb_tags import pybb_is_topic_unread, pybb_topic_unread, pybb_forum_unread, \
+from pybb_core import permissions
+from pybb_core.pybb import views as pybb_views
+from pybb_core.templatetags.pybb_tags import pybb_is_topic_unread, pybb_topic_unread, pybb_forum_unread, \
     pybb_get_latest_topics, pybb_get_latest_posts
 
-from pybb import util
-from pybb.util import build_cache_key
+from pybb_core import util
+from pybb_core.util import build_cache_key
 
 User = util.get_user_model()
 username_field = util.get_username_field()
@@ -30,8 +31,14 @@ try:
 except ImportError:
     raise Exception('PyBB requires lxml for self testing')
 
-from pybb import defaults
-from pybb.models import Topic, TopicReadTracker, Forum, ForumReadTracker, Post, Category, PollAnswer, Profile
+from pybb_core import defaults
+from pybb_core.loading import get_models
+
+Topic, TopicReadTracker, Forum, ForumReadTracker, \
+    Post, Category, PollAnswer, Profile = get_models([
+        'Topic', 'TopicReadTracker', 'Forum', 'ForumReadTracker',
+        'Post', 'Category', 'PollAnswer', 'Profile'
+    ])
 
 __author__ = 'zeus'
 
@@ -1208,7 +1215,7 @@ class AttachmentTest(TestCase, SharedTestModule):
         defaults.PYBB_ATTACHMENT_ENABLE = True
         self.ORIG_PYBB_PREMODERATION = defaults.PYBB_PREMODERATION
         defaults.PYBB_PREMODERATION = False
-        self.file_name = os.path.join(os.path.dirname(__file__), 'static', 'pybb', 'img', 'attachment.png')
+        self.file_name = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'static', 'pybb', 'img', 'attachment.png')
         self.create_user()
         self.create_initial()
 
@@ -1513,7 +1520,7 @@ def _detach_perms_class():
     """
     reset permission handler (otherwise other tests may fail)
     """
-    pybb_views.perms = permissions.perms = permissions._resolve_class('pybb.permissions.DefaultPermissionHandler')
+    pybb_views.perms = permissions.perms = permissions._resolve_class('pybb_core.permissions.DefaultPermissionHandler')
 
 
 class CustomPermissionHandlerTest(TestCase, SharedTestModule):
@@ -1537,7 +1544,7 @@ class CustomPermissionHandlerTest(TestCase, SharedTestModule):
             t.closed = True
             t.save()
 
-        _attach_perms_class('pybb.tests.CustomPermissionHandler')
+        _attach_perms_class('pybb_core.pybb.tests.CustomPermissionHandler')
 
     def tearDown(self):
         _detach_perms_class()
@@ -1674,7 +1681,7 @@ class LogonRedirectTest(TestCase, SharedTestModule):
 
     @override_settings(PYBB_ENABLE_ANONYMOUS_POST=False)
     def test_redirect_topic_add(self):
-        _attach_perms_class('pybb.tests.RestrictEditingHandler')
+        _attach_perms_class('pybb_core.pybb.tests.RestrictEditingHandler')
 
         # access without user should be redirected
         add_topic_url = reverse('pybb:add_topic', kwargs={'forum_id': self.forum.id})
@@ -1692,7 +1699,7 @@ class LogonRedirectTest(TestCase, SharedTestModule):
         self.assertEquals(r.status_code, 200)
 
     def test_redirect_post_edit(self):
-        _attach_perms_class('pybb.tests.RestrictEditingHandler')
+        _attach_perms_class('pybb_core.pybb.tests.RestrictEditingHandler')
 
         # access without user should be redirected
         edit_post_url = reverse('pybb:edit_post', kwargs={'pk': self.post.id})

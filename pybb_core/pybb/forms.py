@@ -11,12 +11,17 @@ from django.forms.models import inlineformset_factory, BaseInlineFormSet
 from django.utils.translation import ugettext, ugettext_lazy
 from django.utils.timezone import now as tznow
 
-from pybb import util
+from pybb_core import util
+from pybb_core.loading import get_models
+
 User = util.get_user_model()
 username_field = util.get_username_field()
 
-from pybb.models import Topic, Post, Attachment, PollAnswer
-from pybb import defaults
+from pybb_core import defaults
+
+Topic, Post, Attachment, PollAnswer = get_models([
+    'Topic', 'Post', 'Attachment', 'PollAnswer'
+])
 
 
 class AttachmentForm(forms.ModelForm):

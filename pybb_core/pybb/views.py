@@ -19,7 +19,8 @@ from django.views.decorators.http import require_POST
 from django.views.generic.edit import ModelFormMixin
 from django.views.decorators.csrf import csrf_protect
 from django.views import generic
-from pybb.util import build_cache_key
+from pybb_core.util import build_cache_key
+from pybb_core.loading import get_models, get_class, get_classes
 
 try:
     from pure_pagination import Paginator
@@ -33,14 +34,26 @@ except ImportError:
     Page.pages = lambda self: [PageRepr(i) for i in range(1, self.paginator.num_pages + 1)]
     pure_pagination = False
 
-from pybb.models import Category, Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
-from pybb.forms import PostForm, AdminPostForm, AttachmentFormSet, PollAnswerFormSet, PollForm
-from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
-from pybb import defaults
+from pybb_core.templatetags.pybb_tags import pybb_topic_poll_not_voted
+from pybb_core import defaults
 
-from pybb.permissions import perms
+from pybb_core.permissions import perms
 
-from pybb import util
+from pybb_core import util
+
+
+Category, Forum, Topic, Post, TopicReadTracker, \
+    ForumReadTracker, PollAnswerUser = get_models([
+        'Category', 'Forum', 'Topic', 'Post', 'TopicReadTracker',
+        'ForumReadTracker', 'PollAnswerUser'
+    ])
+
+PostForm, AdminPostForm, AttachmentFormSet, \
+    PollAnswerFormSet, PollForm = get_classes('forms', [
+        'PostForm', 'AdminPostForm', 'AttachmentFormSet',
+        'PollAnswerFormSet', 'PollForm'
+    ])
+
 User = util.get_user_model()
 username_field = util.get_username_field()
 
@@ -531,8 +544,7 @@ class ProfileEditView(generic.UpdateView):
 
     def get_form_class(self):
         if not self.form_class:
-            from pybb.forms import EditProfileForm
-            return EditProfileForm
+            return get_class('forms', 'EditProfileForm')
         else:
             return super(ProfileEditView, self).get_form_class()
 

@@ -1,11 +1,6 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 import functools
-from django.contrib.auth.models import Permission
-from django.contrib.contenttypes.models import ContentType
-from django.db.models.signals import post_delete, post_save
-from pybb.profiles import PybbProfile
-from pybb.subscription import notify_topic_subscribers
 
 from django.db import models, transaction
 from django.core.urlresolvers import reverse
@@ -17,15 +12,13 @@ from django.utils.timezone import now as tznow
 
 from annoying.fields import AutoOneToOneField
 
-from pybb.util import unescape, get_user_model, get_username_field, get_pybb_profile_model, get_pybb_profile, get_file_path
+from pybb_core.util import unescape, get_user_model, get_username_field, get_file_path
+from pybb_core.loading import get_model, get_class
+
+PybbProfile = get_class('profiles', 'PybbProfile')
 
 User = get_user_model()
 username_field = get_username_field()
-
-try:
-    from hashlib import sha1
-except ImportError:
-    from sha import sha as sha1
 
 try:
     from south.modelsinspector import add_introspection_rules
@@ -34,7 +27,7 @@ try:
 except ImportError:
     pass
 
-from pybb import defaults
+from pybb_core import defaults
 
 try:
     from django.db.transaction import atomic as atomic_func
@@ -43,7 +36,7 @@ except ImportError:
 
 
 @python_2_unicode_compatible
-class Category(models.Model):
+class AbstractCategory(models.Model):
     name = models.CharField(_('Name'), max_length=80)
     position = models.IntegerField(_('Position'), blank=True, default=0)
     hidden = models.BooleanField(_('Hidden'), blank=False, null=False, default=False,
@@ -54,6 +47,7 @@ class Category(models.Model):
         ordering = ['position']
         verbose_name = _('Category')
         verbose_name_plural = _('Categories')
+        abstract = True
 
     def __str__(self):
         return self.name
@@ -66,16 +60,20 @@ class Category(models.Model):
 
     @property
     def topics(self):
+        Topic = get_model('Topic')
         return Topic.objects.filter(forum__category=self).select_related()
 
     @property
     def posts(self):
+        Post = get_model('Post')
         return Post.objects.filter(topic__forum__category=self).select_related()
 
 
 @python_2_unicode_compatible
-class Forum(models.Model):
-    category = models.ForeignKey(Category, related_name='forums', verbose_name=_('Category'))
+class AbstractForum(models.Model):
+    category = models.ForeignKey('pybb.Category',
+                                 related_name='forums',
+                                 verbose_name=_('Category'))
     parent = models.ForeignKey('self', related_name='child_forums', verbose_name=_('Parent forum'),
                                blank=True, null=True)
     name = models.CharField(_('Name'), max_length=80)
@@ -93,11 +91,14 @@ class Forum(models.Model):
         ordering = ['position']
         verbose_name = _('Forum')
         verbose_name_plural = _('Forums')
+        abstract = True
 
     def __str__(self):
         return self.name
 
     def update_counters(self):
+        Post = get_model('Post')
+        Topic = get_model('Topic')
         posts = Post.objects.filter(topic__forum_id=self.id)
         self.post_count = posts.count()
         self.topic_count = Topic.objects.filter(forum=self).count()
@@ -114,6 +115,7 @@ class Forum(models.Model):
 
     @property
     def posts(self):
+        Post = get_model('Post')
         return Post.objects.filter(topic__forum=self).select_related()
 
     @property
@@ -136,7 +138,7 @@ class Forum(models.Model):
 
 
 @python_2_unicode_compatible
-class Topic(models.Model):
+class AbstractTopic(models.Model):
     POLL_TYPE_NONE = 0
     POLL_TYPE_SINGLE = 1
     POLL_TYPE_MULTIPLE = 2
@@ -147,7 +149,8 @@ class Topic(models.Model):
         (POLL_TYPE_MULTIPLE, _('Multiple answers')),
     )
 
-    forum = models.ForeignKey(Forum, related_name='topics', verbose_name=_('Forum'))
+    forum = models.ForeignKey('pybb.Forum', related_name='topics',
+                              verbose_name=_('Forum'))
     name = models.CharField(_('Subject'), max_length=255)
     created = models.DateTimeField(_('Created'), null=True)
     updated = models.DateTimeField(_('Updated'), null=True)
@@ -167,6 +170,7 @@ class Topic(models.Model):
         ordering = ['-created']
         verbose_name = _('Topic')
         verbose_name_plural = _('Topics')
+        abstract = True
 
     def __str__(self):
         return self.name
@@ -198,21 +202,22 @@ class Topic(models.Model):
         forum_changed = False
         old_topic = None
         if self.id is not None:
-            old_topic = Topic.objects.get(id=self.id)
+            old_topic = self.__class__.objects.get(id=self.id)
             if self.forum != old_topic.forum:
                 forum_changed = True
 
-        super(Topic, self).save(*args, **kwargs)
+        super(AbstractTopic, self).save(*args, **kwargs)
 
         if forum_changed:
             old_topic.forum.update_counters()
             self.forum.update_counters()
 
     def delete(self, using=None):
-        super(Topic, self).delete(using)
+        super(AbstractTopic, self).delete(using)
         self.forum.update_counters()
 
     def update_counters(self):
+        Post = get_model('Post')
         self.post_count = self.posts.count()
         last_post = Post.objects.filter(topic_id=self.id).order_by('-created')[0]
         self.updated = last_post.updated or last_post.created
@@ -227,13 +232,14 @@ class Topic(models.Model):
         return parents
 
     def poll_votes(self):
+        PollAnswerUser = get_model('PollAnswerUser')
         if self.poll_type != self.POLL_TYPE_NONE:
             return PollAnswerUser.objects.filter(poll_answer__topic=self).count()
         else:
             return None
 
 
-class RenderableItem(models.Model):
+class AbstractRenderableItem(models.Model):
     """
     Base class for models that has markup, body, body_text and body_html fields.
     """
@@ -254,8 +260,9 @@ class RenderableItem(models.Model):
 
 
 @python_2_unicode_compatible
-class Post(RenderableItem):
-    topic = models.ForeignKey(Topic, related_name='posts', verbose_name=_('Topic'))
+class AbstractPost(AbstractRenderableItem):
+    topic = models.ForeignKey('pybb.Topic', related_name='posts',
+                              verbose_name=_('Topic'))
     user = models.ForeignKey(User, related_name='posts', verbose_name=_('User'))
     created = models.DateTimeField(_('Created'), blank=True, db_index=True)
     updated = models.DateTimeField(_('Updated'), blank=True, null=True)
@@ -266,6 +273,7 @@ class Post(RenderableItem):
         ordering = ['created']
         verbose_name = _('Post')
         verbose_name_plural = _('Posts')
+        abstract = True
 
     def summary(self):
         LIMIT = 50
@@ -286,11 +294,11 @@ class Post(RenderableItem):
         topic_changed = False
         old_post = None
         if not new:
-            old_post = Post.objects.get(pk=self.pk)
+            old_post = self.__class__.objects.get(pk=self.pk)
             if old_post.topic != self.topic:
                 topic_changed = True
 
-        super(Post, self).save(*args, **kwargs)
+        super(AbstractPost, self).save(*args, **kwargs)
 
         # If post is topic head and moderated, moderate topic too
         if self.topic.head == self and not self.on_moderation and self.topic.on_moderation:
@@ -313,7 +321,7 @@ class Post(RenderableItem):
         if self_id == head_post_id:
             self.topic.delete()
         else:
-            super(Post, self).delete(*args, **kwargs)
+            super(AbstractPost, self).delete(*args, **kwargs)
             self.topic.update_counters()
             self.topic.forum.update_counters()
 
@@ -324,7 +332,7 @@ class Post(RenderableItem):
         return self.topic.forum.category, self.topic.forum, self.topic,
 
 
-class Profile(PybbProfile):
+class AbstractProfile(PybbProfile):
     """
     Profile class that can be used if you doesn't have
     your site profile.
@@ -334,25 +342,28 @@ class Profile(PybbProfile):
     class Meta(object):
         verbose_name = _('Profile')
         verbose_name_plural = _('Profiles')
+        abstract = True
 
     def get_absolute_url(self):
         return reverse('pybb:user', kwargs={'username': getattr(self.user, username_field)})
 
 
-class Attachment(models.Model):
+class AbstractAttachment(models.Model):
 
     class Meta(object):
         verbose_name = _('Attachment')
         verbose_name_plural = _('Attachments')
+        abstract = True
 
-    post = models.ForeignKey(Post, verbose_name=_('Post'), related_name='attachments')
+    post = models.ForeignKey('pybb.Post', verbose_name=_('Post'),
+                             related_name='attachments')
     size = models.IntegerField(_('Size'))
     file = models.FileField(_('File'),
                             upload_to=functools.partial(get_file_path, to=defaults.PYBB_ATTACHMENT_UPLOAD_TO))
 
     def save(self, *args, **kwargs):
         self.size = self.file.size
-        super(Attachment, self).save(*args, **kwargs)
+        super(AbstractAttachment, self).save(*args, **kwargs)
 
     def size_display(self):
         size = self.size
@@ -376,20 +387,20 @@ class TopicReadTrackerManager(models.Manager):
         is_new = True
         try:
             with atomic_func():
-                obj = TopicReadTracker.objects.create(user=user, topic=topic)
+                obj = self.create(user=user, topic=topic)
         except IntegrityError:
             transaction.commit()
-            obj = TopicReadTracker.objects.get(user=user, topic=topic)
+            obj = self.get(user=user, topic=topic)
             is_new = False
         return obj, is_new
 
 
-class TopicReadTracker(models.Model):
+class AbstractTopicReadTracker(models.Model):
     """
     Save per user topic read tracking
     """
     user = models.ForeignKey(User, blank=False, null=False)
-    topic = models.ForeignKey(Topic, blank=True, null=True)
+    topic = models.ForeignKey('pybb.Topic', blank=True, null=True)
     time_stamp = models.DateTimeField(auto_now=True)
 
     objects = TopicReadTrackerManager()
@@ -398,6 +409,7 @@ class TopicReadTracker(models.Model):
         verbose_name = _('Topic read tracker')
         verbose_name_plural = _('Topic read trackers')
         unique_together = ('user', 'topic')
+        abstract = True
 
 
 class ForumReadTrackerManager(models.Manager):
@@ -412,20 +424,20 @@ class ForumReadTrackerManager(models.Manager):
         is_new = True
         try:
             with atomic_func():
-                obj = ForumReadTracker.objects.create(user=user, forum=forum)
+                obj = self.create(user=user, forum=forum)
         except IntegrityError:
             transaction.commit()
             is_new = False
-            obj = ForumReadTracker.objects.get(user=user, forum=forum)
+            obj = self.get(user=user, forum=forum)
         return obj, is_new
 
 
-class ForumReadTracker(models.Model):
+class AbstractForumReadTracker(models.Model):
     """
     Save per user forum read tracking
     """
     user = models.ForeignKey(User, blank=False, null=False)
-    forum = models.ForeignKey(Forum, blank=True, null=True)
+    forum = models.ForeignKey('pybb.Forum', blank=True, null=True)
     time_stamp = models.DateTimeField(auto_now=True)
 
     objects = ForumReadTrackerManager()
@@ -434,16 +446,20 @@ class ForumReadTracker(models.Model):
         verbose_name = _('Forum read tracker')
         verbose_name_plural = _('Forum read trackers')
         unique_together = ('user', 'forum')
+        abstract = True
 
 
 @python_2_unicode_compatible
-class PollAnswer(models.Model):
-    topic = models.ForeignKey(Topic, related_name='poll_answers', verbose_name=_('Topic'))
+class AbstractPollAnswer(models.Model):
+    topic = models.ForeignKey('pybb.Topic',
+                              related_name='poll_answers',
+                              verbose_name=_('Topic'))
     text = models.CharField(max_length=255, verbose_name=_('Text'))
 
     class Meta:
         verbose_name = _('Poll answer')
         verbose_name_plural = _('Polls answers')
+        abstract = True
 
     def __str__(self):
         return self.text
@@ -460,8 +476,10 @@ class PollAnswer(models.Model):
 
 
 @python_2_unicode_compatible
-class PollAnswerUser(models.Model):
-    poll_answer = models.ForeignKey(PollAnswer, related_name='users', verbose_name=_('Poll answer'))
+class AbstractPollAnswerUser(models.Model):
+    poll_answer = models.ForeignKey('pybb.PollAnswer',
+                                    related_name='users',
+                                    verbose_name=_('Poll answer'))
     user = models.ForeignKey(User, related_name='poll_answers', verbose_name=_('User'))
     timestamp = models.DateTimeField(auto_now_add=True)
 
@@ -469,44 +487,7 @@ class PollAnswerUser(models.Model):
         verbose_name = _('Poll answer user')
         verbose_name_plural = _('Polls answers users')
         unique_together = (('poll_answer', 'user', ), )
+        abstract = True
 
     def __str__(self):
         return '%s - %s' % (self.poll_answer.topic, self.user)
-
-
-def post_saved(instance, **kwargs):
-    notify_topic_subscribers(instance)
-
-    if get_pybb_profile(instance.user).autosubscribe:
-        instance.topic.subscribers.add(instance.user)
-
-    if kwargs['created']:
-        profile = get_pybb_profile(instance.user)
-        profile.post_count = instance.user.posts.count()
-        profile.save()
-
-
-def post_deleted(instance, **kwargs):
-    profile = get_pybb_profile(instance.user)
-    profile.post_count = instance.user.posts.count()
-    profile.save()
-
-
-def user_saved(instance, created, **kwargs):
-    if not created:
-        return
-    try:
-        add_post_permission = Permission.objects.get_by_natural_key('add_post', 'pybb', 'post')
-        add_topic_permission = Permission.objects.get_by_natural_key('add_topic', 'pybb', 'topic')
-    except (Permission.DoesNotExist, ContentType.DoesNotExist):
-        return
-    instance.user_permissions.add(add_post_permission, add_topic_permission)
-    instance.save()
-    if get_pybb_profile_model() == Profile:
-        Profile(user=instance).save()
-
-
-post_save.connect(post_saved, sender=Post)
-post_delete.connect(post_deleted, sender=Post)
-if defaults.PYBB_AUTO_USER_PERMISSIONS:
-    post_save.connect(user_saved, sender=get_user_model())

@@ -4,8 +4,11 @@ from __future__ import unicode_literals
 __author__ = 'zeus'
 
 from django.core.management.base import BaseCommand
-from pybb.models import Topic, Post
+from pybb_core.loading import get_models
 from django.core import serializers
+
+
+Topic, Post = get_models(['Topic', 'Post'])
 
 
 class Command(BaseCommand):

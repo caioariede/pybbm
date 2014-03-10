@@ -1,9 +1,11 @@
 from __future__ import unicode_literals
 
 from django.core.management.base import BaseCommand, CommandError
-from pybb import util
+from pybb_core import util
+from pybb_core.loading import get_model
 
-from pybb.models import Forum
+
+Forum = get_model('Forum')
 
 
 class Command(BaseCommand):

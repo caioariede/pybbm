@@ -6,8 +6,8 @@ try:
 except ImportError:
     from django.conf.urls.defaults import patterns, include, url
 
-from pybb.feeds import LastPosts, LastTopics
-from pybb.views import IndexView, CategoryView, ForumView, TopicView,\
+from pybb_core.pybb.feeds import LastPosts, LastTopics
+from pybb_core.pybb.views import IndexView, CategoryView, ForumView, TopicView,\
     AddPostView, EditPostView, UserView, PostView, ProfileEditView,\
     DeletePostView, StickTopicView, UnstickTopicView, CloseTopicView,\
     OpenTopicView, ModeratePost, TopicPollVoteView, LatestTopicsView,\
@@ -20,7 +20,7 @@ urlpatterns = patterns('',
                        url('^feeds/topics/$', LastTopics(), name='feed_topics'),
                        )
 
-urlpatterns += patterns('pybb.views',
+urlpatterns += patterns('pybb_core.pybb.views',
                         # Index, Category, Forum
                         url('^$', IndexView.as_view(), name='index'),
                         url('^category/(?P<pk>\d+)/$', CategoryView.as_view(), name='category'),

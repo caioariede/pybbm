@@ -6,9 +6,12 @@ from django.core.urlresolvers import reverse
 from django.utils.feedgenerator import Atom1Feed
 from django.utils.translation import ugettext_lazy as _
 
-from pybb.models import Post, Topic
+from pybb_core.loading import get_models
+from pybb_core.permissions import perms
 
-from pybb.permissions import perms
+
+Post, Topic = get_models(['Post', 'Topic'])
+
 
 class PybbFeed(Feed):
     feed_type = Atom1Feed

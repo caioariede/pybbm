@@ -51,7 +51,7 @@ def get_username_field():
 
 
 def get_pybb_profile(user):
-    from pybb import defaults
+    from pybb_core import defaults
 
     if not user.is_authenticated():
         if defaults.PYBB_ENABLE_ANONYMOUS_POST:
@@ -66,7 +66,7 @@ def get_pybb_profile(user):
 
 
 def get_pybb_profile_model():
-    from pybb import defaults
+    from pybb_core import defaults
     if defaults.PYBB_PROFILE_RELATED_NAME:
         return getattr(get_user_model(), defaults.PYBB_PROFILE_RELATED_NAME).related.model
     else:

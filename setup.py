@@ -10,7 +10,7 @@ setup(
     url='http://www.pybbm.org/',
     packages=find_packages(),
     include_package_data=True,
-    package_data={'': ['pybb/templates', 'pybb/static']},
+    package_data={'': ['pybb_core/templates', 'pybb_core/static']},
     install_requires=[
         'markdown',
         'bbcode',

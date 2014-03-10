@@ -5,7 +5,7 @@ import os.path
 
 from django.conf import settings
 
-from pybb.util import filter_blanks, rstrip_str
+from pybb_core.util import filter_blanks, rstrip_str
 
 
 PYBB_TOPIC_PAGE_SIZE = getattr(settings, 'PYBB_TOPIC_PAGE_SIZE', 10)
@@ -29,6 +29,8 @@ PYBB_DEFAULT_AVATAR_URL = getattr(settings,'PYBB_DEFAULT_AVATAR_URL',
     getattr(settings, 'STATIC_URL', '') + 'pybb/img/default_avatar.jpg')
 
 PYBB_DEFAULT_TITLE = getattr(settings, 'PYBB_DEFAULT_TITLE', 'PYBB Powered Forum')
+
+PYBB_CUSTOM_APP = getattr(settings, 'PYBB_CUSTOM_APP', None)
 
 import bbcode
 from markdown import Markdown
@@ -99,6 +101,6 @@ PYBB_AUTO_USER_PERMISSIONS = getattr(settings, 'PYBB_AUTO_USER_PERMISSIONS', Tru
 
 PYBB_USE_DJANGO_MAILER = getattr(settings, 'PYBB_USE_DJANGO_MAILER', False)
 
-PYBB_PERMISSION_HANDLER = getattr(settings, 'PYBB_PERMISSION_HANDLER', 'pybb.permissions.DefaultPermissionHandler')
+PYBB_PERMISSION_HANDLER = getattr(settings, 'PYBB_PERMISSION_HANDLER', 'pybb_core.permissions.DefaultPermissionHandler')
 
 PYBB_PROFILE_RELATED_NAME = getattr(settings, 'PYBB_PROFILE_RELATED_NAME', 'pybb_profile')

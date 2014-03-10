@@ -7,8 +7,11 @@ from __future__ import unicode_literals
 from django.utils.importlib import import_module
 from django.db.models import Q
 
-from pybb import defaults
-from pybb.models import Topic, PollAnswerUser
+from pybb_core import defaults
+from pybb_core.loading import get_models
+
+
+Topic, PollAnswerUser = get_models(['Topic', 'PollAnswerUser'])
 
 
 def _resolve_class(name):
