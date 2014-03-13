@@ -1,24 +1,30 @@
 from django.utils.functional import memoize
-from django.db.models import get_model as dj_get_model
+from django.db.models import get_app, get_model as dj_get_model
 
 
-def _get_class(module_label, classname):
-    mod = None
-
-    # try to import from the custom app
+def _pybb_import(module_label, objname):
     try:
-        mod = __import__('pybb.%s' % module_label, fromlist=[classname])
+        app = get_app('pybb').__package__
+        mod = __import__('%s.%s' % (app, module_label), fromlist=[objname])
     except ImportError:
-        pass  # continue searching
+        mod = None  # continue searching
 
-    if not mod or not hasattr(mod, classname):
+    if not mod or (objname != '*' and not hasattr(mod, objname)):
         mod = __import__('pybb_core.pybb.%s' % module_label,
-                         fromlist=[classname])
+                         fromlist=[objname])
 
-    return getattr(mod, classname)
+    return mod
 
 
-get_class = memoize(_get_class, {}, 2)
+_pybb_import_wrapper = memoize(_pybb_import, {}, 2)
+
+
+def pybb_import(module_label, objname=None):
+    return _pybb_import_wrapper(module_label, objname or '*')
+
+
+def get_class(module_label, classname):
+    return getattr(pybb_import(module_label, classname), classname)
 
 
 def get_classes(module_label, classnames):

@@ -16,7 +16,7 @@ from django.test import TestCase
 from django.test.client import Client
 from django.test.utils import override_settings
 from pybb_core import permissions
-from pybb_core.pybb import views as pybb_views
+from pybb_core import base_views as pybb_views
 from pybb_core.templatetags.pybb_tags import pybb_is_topic_unread, pybb_topic_unread, pybb_forum_unread, \
     pybb_get_latest_topics, pybb_get_latest_posts
 
