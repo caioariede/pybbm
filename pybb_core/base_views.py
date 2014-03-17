@@ -20,7 +20,7 @@ from django.views.generic.edit import ModelFormMixin
 from django.views.decorators.csrf import csrf_protect
 from django.views import generic
 from pybb_core.util import build_cache_key
-from pybb_core.loading import get_models, get_class, get_classes
+from pybb_core.loading import get_models, get_form, get_forms
 
 try:
     from pure_pagination import Paginator
@@ -49,7 +49,7 @@ Category, Forum, Topic, Post, TopicReadTracker, \
     ])
 
 PostForm, AdminPostForm, AttachmentFormSet, \
-    PollAnswerFormSet, PollForm = get_classes('forms', [
+    PollAnswerFormSet, PollForm = get_forms([
         'PostForm', 'AdminPostForm', 'AttachmentFormSet',
         'PollAnswerFormSet', 'PollForm'
     ])
@@ -561,7 +561,7 @@ class BaseProfileEditView(generic.UpdateView):
 
     def get_form_class(self):
         if not self.form_class:
-            return get_class('forms', 'EditProfileForm')
+            return get_form('EditProfileForm')
         else:
             return super(BaseProfileEditView, self).get_form_class()
 

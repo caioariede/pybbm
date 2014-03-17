@@ -28,8 +28,7 @@ def get_class(module_label, classname):
 
 
 def get_classes(module_label, classnames):
-    for classname in classnames:
-        yield get_class(module_label, classname)
+    return (get_class(module_label, classname) for classname in classnames)
 
 
 def get_model(classname):
@@ -37,4 +36,12 @@ def get_model(classname):
 
 
 def get_models(classnames):
-    return [get_model(classname) for classname in classnames]
+    return (get_model(classname) for classname in classnames)
+
+
+def get_form(classname):
+    return get_class('forms', classname)
+
+
+def get_forms(classnames):
+    return (get_form(classname) for classname in classnames)
