@@ -3,7 +3,7 @@
 from __future__ import unicode_literals
 from django.utils import translation
 from django.db.models import ObjectDoesNotExist
-from pybb import util
+from pybb_core import util
 
 class PybbMiddleware(object):
     def process_request(self, request):
@@ -18,7 +18,7 @@ class PybbMiddleware(object):
                 # and grant permissions for add posts
                 # It should be caused rarely, so we move import signal here
                 # to prevent circular import
-                from pybb.models import user_saved
+                from pybb_core.receivers import user_saved
                 user_saved(request.user, created=True)
                 profile = util.get_pybb_profile(request.user)
 

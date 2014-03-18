@@ -4,10 +4,15 @@ from django.utils.translation import ugettext_lazy as _
 from django.contrib import admin
 from django.core.urlresolvers import reverse
 
-from pybb.models import Category, Forum, Topic, Post, Profile, Attachment, PollAnswer
+from pybb_core import util
+from pybb_core.loading import get_models
 
-from pybb import util
+
 username_field = util.get_username_field()
+
+Category, Forum, Topic, Post, Profile, Attachment, PollAnswer = get_models([
+    'Category', 'Forum', 'Topic', 'Post', 'Profile', 'Attachment', 'PollAnswer'
+])
 
 
 class ForumInlineAdmin(admin.TabularInline):

@@ -8,7 +8,7 @@ from django.utils import translation
 from django.contrib.sites.models import Site
 from django import forms
 
-from pybb import defaults, util
+from pybb_core import defaults, util
 
 if defaults.PYBB_USE_DJANGO_MAILER:
     try:

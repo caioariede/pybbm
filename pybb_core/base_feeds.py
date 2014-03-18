@@ -6,9 +6,15 @@ from django.core.urlresolvers import reverse
 from django.utils.feedgenerator import Atom1Feed
 from django.utils.translation import ugettext_lazy as _
 
-from pybb.models import Post, Topic
+from pybb_core.loading import get_models
+from pybb_core.permissions import perms
 
-from pybb.permissions import perms
+
+Post, Topic = get_models(['Post', 'Topic'])
+
+
+__all__ = ('BaseLastPosts', 'BaseLastTopics')
+
 
 class PybbFeed(Feed):
     feed_type = Atom1Feed
@@ -23,7 +29,7 @@ class PybbFeed(Feed):
         return obj.created
 
 
-class LastPosts(PybbFeed):
+class BaseLastPosts(PybbFeed):
     title = _('Latest posts on forum')
     description = _('Latest posts on forum')
     title_template = 'pybb/feeds/posts_title.html'
@@ -37,7 +43,7 @@ class LastPosts(PybbFeed):
         return Post.objects.filter(id__in=ids).select_related('topic', 'topic__forum', 'user')
 
 
-class LastTopics(PybbFeed):
+class BaseLastTopics(PybbFeed):
     title = _('Latest topics on forum')
     description = _('Latest topics on forum')
     title_template = 'pybb/feeds/topics_title.html'

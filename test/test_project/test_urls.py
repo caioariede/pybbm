@@ -10,5 +10,5 @@ admin.autodiscover()
 
 urlpatterns = patterns('',
     url(r'^admin/', include(admin.site.urls)),
-    url(r'^', include('pybb.urls', namespace='pybb')),
+    url(r'^', include('pybb_core.pybb.urls', namespace='pybb')),
 )

@@ -13,7 +13,7 @@ TEMPLATE_CONTEXT_PROCESSORS = [
     'django.core.context_processors.media',
     'django.core.context_processors.static',
     'django.core.context_processors.request',
-    'pybb.context_processors.processor',
+    'pybb_core.context_processors.processor',
     'django.core.context_processors.tz'
 ]
 
@@ -33,7 +33,8 @@ if not settings.configured and not os.environ.get('DJANGO_SETTINGS_MODULE'):
             'django.contrib.sessions',
             'django.contrib.sites',
             'test.test_project',
-            'pybb',
+            'pybb_core',
+            'pybb_core.pybb',
         ],
         ROOT_URLCONF='test.test_project.test_urls',
         DEBUG=False,

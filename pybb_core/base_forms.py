@@ -7,19 +7,24 @@ import inspect
 
 from django import forms
 from django.core.exceptions import FieldError
-from django.forms.models import inlineformset_factory, BaseInlineFormSet
+from django.forms.models import BaseInlineFormSet
 from django.utils.translation import ugettext, ugettext_lazy
 from django.utils.timezone import now as tznow
 
-from pybb import util
+from pybb_core import util
+from pybb_core.loading import get_models
+
 User = util.get_user_model()
 username_field = util.get_username_field()
 
-from pybb.models import Topic, Post, Attachment, PollAnswer
-from pybb import defaults
+from pybb_core import defaults
+
+Topic, Post, Attachment, PollAnswer = get_models([
+    'Topic', 'Post', 'Attachment', 'PollAnswer'
+])
 
 
-class AttachmentForm(forms.ModelForm):
+class BaseAttachmentForm(forms.ModelForm):
     class Meta(object):
         model = Attachment
         fields = ('file', )
@@ -29,10 +34,8 @@ class AttachmentForm(forms.ModelForm):
             raise forms.ValidationError(ugettext('Attachment is too big'))
         return self.cleaned_data['file']
 
-AttachmentFormSet = inlineformset_factory(Post, Attachment, extra=1, form=AttachmentForm)
 
-
-class PollAnswerForm(forms.ModelForm):
+class BasePollAnswerForm(forms.ModelForm):
     class Meta:
         model = PollAnswer
         fields = ('text', )
@@ -51,11 +54,7 @@ class BasePollAnswerFormset(BaseInlineFormSet):
             raise forms.ValidationError(ugettext('Add two or more answers for this poll'))
 
 
-PollAnswerFormSet = inlineformset_factory(Topic, PollAnswer, extra=2, max_num=defaults.PYBB_POLL_MAX_ANSWERS,
-                                          form=PollAnswerForm, formset=BasePollAnswerFormset)
-
-
-class PostForm(forms.ModelForm):
+class BasePostForm(forms.ModelForm):
     name = forms.CharField(label=ugettext_lazy('Subject'))
     poll_type = forms.TypedChoiceField(label=ugettext_lazy('Poll type'), choices=Topic.POLL_TYPE_CHOICES, coerce=int)
     poll_question = forms.CharField(
@@ -70,7 +69,7 @@ class PostForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
     #Move args to kwargs
         if args:
-            kwargs.update(dict(zip(inspect.getargspec(super(PostForm, self).__init__)[0][1:], args)))
+            kwargs.update(dict(zip(inspect.getargspec(super(BasePostForm, self).__init__)[0][1:], args)))
         self.user = kwargs.pop('user', None)
         self.ip = kwargs.pop('ip', None)
         self.topic = kwargs.pop('topic', None)
@@ -84,7 +83,7 @@ class PostForm(forms.ModelForm):
             kwargs.setdefault('initial', {})['poll_type'] = kwargs['instance'].topic.poll_type
             kwargs.setdefault('initial', {})['poll_question'] = kwargs['instance'].topic.poll_question
 
-        super(PostForm, self).__init__(**kwargs)
+        super(BasePostForm, self).__init__(**kwargs)
 
         # remove topic specific fields
         if not (self.forum or (self.instance.pk and (self.instance.topic.head == self.instance))):
@@ -118,7 +117,7 @@ class PostForm(forms.ModelForm):
 
     def save(self, commit=True):
         if self.instance.pk:
-            post = super(PostForm, self).save(commit=False)
+            post = super(BasePostForm, self).save(commit=False)
             if self.user:
                 post.user = self.user
             if post.topic.head == post:
@@ -158,7 +157,7 @@ class PostForm(forms.ModelForm):
         return post
 
 
-class AdminPostForm(PostForm):
+class BaseAdminPostForm(BasePostForm):
     """
     Superusers can post messages from any user and from any time
     If no user with specified name - new user will be created
@@ -170,7 +169,7 @@ class AdminPostForm(PostForm):
             kwargs.update(dict(zip(inspect.getargspec(forms.ModelForm.__init__)[0][1:], args)))
         if 'instance' in kwargs and kwargs['instance']:
             kwargs.setdefault('initial', {}).update({'login': getattr(kwargs['instance'].user, username_field)})
-        super(AdminPostForm, self).__init__(**kwargs)
+        super(BaseAdminPostForm, self).__init__(**kwargs)
 
     def save(self, *args, **kwargs):
         try:
@@ -184,17 +183,17 @@ class AdminPostForm(PostForm):
                 create_data = {'email': '%s@example.com' % self.cleaned_data['login'],
                                'is_staff': False}
             self.user = User.objects.create(**create_data)
-        return super(AdminPostForm, self).save(*args, **kwargs)
+        return super(BaseAdminPostForm, self).save(*args, **kwargs)
 
 
 try:
-    class EditProfileForm(forms.ModelForm):
+    class BaseEditProfileForm(forms.ModelForm):
         class Meta(object):
             model = util.get_pybb_profile_model()
             fields = ['signature', 'time_zone', 'language', 'show_signatures', 'avatar']
 
         def __init__(self, *args, **kwargs):
-            super(EditProfileForm, self).__init__(*args, **kwargs)
+            super(BaseEditProfileForm, self).__init__(*args, **kwargs)
             self.fields['signature'].widget = forms.Textarea(attrs={'rows': 2, 'cols:': 60})
 
         def clean_avatar(self):
@@ -214,7 +213,7 @@ except FieldError:
     pass
 
 
-class UserSearchForm(forms.Form):
+class BaseUserSearchForm(forms.Form):
     query = forms.CharField(required=False, label='')
 
     def filter(self, qs):
@@ -225,11 +224,11 @@ class UserSearchForm(forms.Form):
             return qs
 
 
-class PollForm(forms.Form):
+class BasePollForm(forms.Form):
     def __init__(self, topic, *args, **kwargs):
         self.topic = topic
 
-        super(PollForm, self).__init__(*args, **kwargs)
+        super(BasePollForm, self).__init__(*args, **kwargs)
 
         qs = PollAnswer.objects.filter(topic=topic)
         if topic.poll_type == Topic.POLL_TYPE_SINGLE:

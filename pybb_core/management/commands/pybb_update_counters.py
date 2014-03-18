@@ -5,7 +5,11 @@ from __future__ import unicode_literals
 __author__ = 'zeus'
 
 from django.core.management.base import BaseCommand, CommandError
-from pybb.models import Topic, Forum
+from pybb_core.loading import get_models
+
+
+Topic, Forum = get_models(['Topic', 'Forum'])
+
 
 class Command(BaseCommand):
     help = 'Recalc post counters for forums and topics'

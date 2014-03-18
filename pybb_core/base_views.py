@@ -19,7 +19,8 @@ from django.views.decorators.http import require_POST
 from django.views.generic.edit import ModelFormMixin
 from django.views.decorators.csrf import csrf_protect
 from django.views import generic
-from pybb.util import build_cache_key
+from pybb_core.util import build_cache_key
+from pybb_core.loading import get_models, get_form, get_forms
 
 try:
     from pure_pagination import Paginator
@@ -33,16 +34,45 @@ except ImportError:
     Page.pages = lambda self: [PageRepr(i) for i in range(1, self.paginator.num_pages + 1)]
     pure_pagination = False
 
-from pybb.models import Category, Forum, Topic, Post, TopicReadTracker, ForumReadTracker, PollAnswerUser
-from pybb.forms import PostForm, AdminPostForm, AttachmentFormSet, PollAnswerFormSet, PollForm
-from pybb.templatetags.pybb_tags import pybb_topic_poll_not_voted
-from pybb import defaults
+from pybb_core.templatetags.pybb_tags import pybb_topic_poll_not_voted
+from pybb_core import defaults
 
-from pybb.permissions import perms
+from pybb_core.permissions import perms
 
-from pybb import util
+from pybb_core import util
+
+
+Category, Forum, Topic, Post, TopicReadTracker, \
+    ForumReadTracker, PollAnswerUser = get_models([
+        'Category', 'Forum', 'Topic', 'Post', 'TopicReadTracker',
+        'ForumReadTracker', 'PollAnswerUser'
+    ])
+
+PostForm, AdminPostForm, AttachmentFormSet, \
+    PollAnswerFormSet, PollForm = get_forms([
+        'PostForm', 'AdminPostForm', 'AttachmentFormSet',
+        'PollAnswerFormSet', 'PollForm'
+    ])
+
 User = util.get_user_model()
 username_field = util.get_username_field()
+
+
+__all__ = (
+    'BaseIndexView', 'BaseCategoryView', 'BaseForumView',
+    'BaseLatestTopicsView', 'BaseTopicView', 'BaseAddPostView',
+    'BaseEditPostView', 'BaseUserView', 'BaseUserPosts', 'BaseUserTopics',
+    'BasePostView', 'BaseModeratePost', 'BaseProfileEditView',
+    'BaseDeletePostView', 'BaseStickTopicView', 'BaseUnstickTopicView',
+    'BaseCloseTopicView', 'BaseOpenTopicView', 'BaseTopicPollVoteView',
+    'topic_cancel_poll_vote',
+    'delete_subscription',
+    'add_subscription',
+    'post_ajax_preview',
+    'mark_all_as_read',
+    'block_user',
+    'unblock_user',
+)
 
 
 class PaginatorMixin(object):
@@ -92,13 +122,13 @@ class BreadcrumbMixin(object):
             return ctx.get(obj_name)
 
 
-class IndexView(generic.ListView):
+class BaseIndexView(generic.ListView):
 
     template_name = 'pybb/index.html'
     context_object_name = 'categories'
 
     def get_context_data(self, **kwargs):
-        ctx = super(IndexView, self).get_context_data(**kwargs)
+        ctx = super(BaseIndexView, self).get_context_data(**kwargs)
         categories = ctx['categories']
         for category in categories:
             category.forums_accessed = perms.filter_forums(self.request.user, category.forums.filter(parent=None))
@@ -109,7 +139,7 @@ class IndexView(generic.ListView):
         return perms.filter_categories(self.request.user, Category.objects.all())
 
 
-class CategoryView(RedirectToLoginMixin, BreadcrumbMixin, generic.DetailView):
+class BaseCategoryView(RedirectToLoginMixin, BreadcrumbMixin, generic.DetailView):
 
     template_name = 'pybb/index.html'
     context_object_name = 'category'
@@ -121,20 +151,20 @@ class CategoryView(RedirectToLoginMixin, BreadcrumbMixin, generic.DetailView):
         return Category.objects.all()
 
     def get_object(self, queryset=None):
-        obj = super(CategoryView, self).get_object(queryset)
+        obj = super(BaseCategoryView, self).get_object(queryset)
         if not perms.may_view_category(self.request.user, obj):
             raise PermissionDenied
         return obj
 
     def get_context_data(self, **kwargs):
-        ctx = super(CategoryView, self).get_context_data(**kwargs)
+        ctx = super(BaseCategoryView, self).get_context_data(**kwargs)
         ctx['category'].forums_accessed = perms.filter_forums(self.request.user, ctx['category'].forums.filter(parent=None))
         ctx['categories'] = [ctx['category']]
         self.update_breadcrumb_ctx(ctx)
         return ctx
 
 
-class ForumView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.ListView):
+class BaseForumView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.ListView):
 
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
@@ -145,7 +175,7 @@ class ForumView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.L
         return reverse('pybb:forum', args=(self.kwargs['pk'],))
 
     def get_context_data(self, **kwargs):
-        ctx = super(ForumView, self).get_context_data(**kwargs)
+        ctx = super(BaseForumView, self).get_context_data(**kwargs)
         ctx['forum'] = self.forum
         ctx['forum'].forums_accessed = perms.filter_forums(self.request.user, self.forum.child_forums.all())
         self.update_breadcrumb_ctx(ctx)
@@ -161,7 +191,7 @@ class ForumView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.L
         return qs
 
 
-class LatestTopicsView(PaginatorMixin, generic.ListView):
+class BaseLatestTopicsView(PaginatorMixin, generic.ListView):
 
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
@@ -173,7 +203,7 @@ class LatestTopicsView(PaginatorMixin, generic.ListView):
         return qs.order_by('-updated')
 
 
-class TopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.ListView):
+class BaseTopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.ListView):
     paginate_by = defaults.PYBB_TOPIC_PAGE_SIZE
     template_object_name = 'post_list'
     template_name = 'pybb/topic.html'
@@ -225,7 +255,7 @@ class TopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.L
                     first_unread_topic = self.topic.head
                 return HttpResponseRedirect(reverse('pybb:post', kwargs={'pk': first_unread_topic.id}))
 
-        return super(TopicView, self).dispatch(request, *args, **kwargs)
+        return super(BaseTopicView, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         if not perms.may_view_topic(self.request.user, self.topic):
@@ -247,7 +277,7 @@ class TopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.L
         return qs
 
     def get_context_data(self, **kwargs):
-        ctx = super(TopicView, self).get_context_data(**kwargs)
+        ctx = super(BaseTopicView, self).get_context_data(**kwargs)
 
         if self.request.user.is_authenticated():
             self.request.user.is_moderator = perms.may_moderate_topic(self.request.user, self.topic)
@@ -374,7 +404,7 @@ class PostEditMixin(object):
             return self.render_to_response(self.get_context_data(form=form, aformset=aformset, pollformset=pollformset))
 
 
-class AddPostView(PostEditMixin, BreadcrumbMixin, generic.CreateView):
+class BaseAddPostView(PostEditMixin, BreadcrumbMixin, generic.CreateView):
 
     template_name = 'pybb/add_post.html'
     context_breadcrumb_object_name = 'topic'
@@ -413,11 +443,11 @@ class AddPostView(PostEditMixin, BreadcrumbMixin, generic.CreateView):
 
                 if self.quote and request.is_ajax():
                     return HttpResponse(self.quote)
-        return super(AddPostView, self).dispatch(request, *args, **kwargs)
+        return super(BaseAddPostView, self).dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
         ip = self.request.META.get('REMOTE_ADDR', '')
-        form_kwargs = super(AddPostView, self).get_form_kwargs()
+        form_kwargs = super(BaseAddPostView, self).get_form_kwargs()
         form_kwargs.update(dict(topic=self.topic, forum=self.forum, user=self.user,
                            ip=ip, initial={}))
         if getattr(self, 'quote', None):
@@ -428,7 +458,7 @@ class AddPostView(PostEditMixin, BreadcrumbMixin, generic.CreateView):
         return form_kwargs
 
     def get_context_data(self, **kwargs):
-        ctx = super(AddPostView, self).get_context_data(**kwargs)
+        ctx = super(BaseAddPostView, self).get_context_data(**kwargs)
         ctx['forum'] = self.forum
         ctx['topic'] = self.topic
         self.update_breadcrumb_ctx(ctx)
@@ -437,10 +467,10 @@ class AddPostView(PostEditMixin, BreadcrumbMixin, generic.CreateView):
     def get_success_url(self):
         if (not self.request.user.is_authenticated()) and defaults.PYBB_PREMODERATION:
             return reverse('pybb:index')
-        return super(AddPostView, self).get_success_url()
+        return super(BaseAddPostView, self).get_success_url()
 
 
-class EditPostView(PostEditMixin, BreadcrumbMixin, generic.UpdateView):
+class BaseEditPostView(PostEditMixin, BreadcrumbMixin, generic.UpdateView):
 
     model = Post
 
@@ -450,26 +480,26 @@ class EditPostView(PostEditMixin, BreadcrumbMixin, generic.UpdateView):
     @method_decorator(login_required)
     @method_decorator(csrf_protect)
     def dispatch(self, request, *args, **kwargs):
-        return super(EditPostView, self).dispatch(request, *args, **kwargs)
+        return super(BaseEditPostView, self).dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
-        form_kwargs = super(EditPostView, self).get_form_kwargs()
+        form_kwargs = super(BaseEditPostView, self).get_form_kwargs()
         form_kwargs['may_create_poll'] = perms.may_create_poll(self.request.user)
         return form_kwargs
 
     def get_object(self, queryset=None):
-        post = super(EditPostView, self).get_object(queryset)
+        post = super(BaseEditPostView, self).get_object(queryset)
         if not perms.may_edit_post(self.request.user, post):
             raise PermissionDenied
         return post
 
     def get_context_data(self, **kwargs):
-        ctx = super(EditPostView, self).get_context_data(**kwargs)
+        ctx = super(BaseEditPostView, self).get_context_data(**kwargs)
         self.update_breadcrumb_ctx(ctx)
         return ctx
 
 
-class UserView(generic.DetailView):
+class BaseUserView(generic.DetailView):
     model = User
     template_name = 'pybb/user.html'
     context_object_name = 'target_user'
@@ -480,12 +510,12 @@ class UserView(generic.DetailView):
         return get_object_or_404(queryset, **{username_field: self.kwargs['username']})
 
     def get_context_data(self, **kwargs):
-        ctx = super(UserView, self).get_context_data(**kwargs)
+        ctx = super(BaseUserView, self).get_context_data(**kwargs)
         ctx['topic_count'] = Topic.objects.filter(user=ctx['target_user']).count()
         return ctx
 
 
-class UserPosts(PaginatorMixin, generic.ListView):
+class BaseUserPosts(PaginatorMixin, generic.ListView):
     model = Post
     paginate_by = defaults.PYBB_TOPIC_PAGE_SIZE
     template_name = 'pybb/user_posts.html'
@@ -493,22 +523,22 @@ class UserPosts(PaginatorMixin, generic.ListView):
     def dispatch(self, request, *args, **kwargs):
         username = kwargs.pop('username')
         self.user = get_object_or_404(**{'klass': User, username_field: username})
-        return super(UserPosts, self).dispatch(request, *args, **kwargs)
+        return super(BaseUserPosts, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = super(UserPosts, self).get_queryset()
+        qs = super(BaseUserPosts, self).get_queryset()
         qs = qs.filter(user=self.user)
         qs = perms.filter_posts(self.request.user, qs).select_related('topic')
         qs = qs.order_by('-created', '-updated')
         return qs
 
     def get_context_data(self, **kwargs):
-        context = super(UserPosts, self).get_context_data(**kwargs)
+        context = super(BaseUserPosts, self).get_context_data(**kwargs)
         context['target_user'] = self.user
         return context
 
 
-class UserTopics(PaginatorMixin, generic.ListView):
+class BaseUserTopics(PaginatorMixin, generic.ListView):
     model = Topic
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     template_name = 'pybb/user_topics.html'
@@ -516,22 +546,22 @@ class UserTopics(PaginatorMixin, generic.ListView):
     def dispatch(self, request, *args, **kwargs):
         username = kwargs.pop('username')
         self.user = get_object_or_404(User, username=username)
-        return super(UserTopics, self).dispatch(request, *args, **kwargs)
+        return super(BaseUserTopics, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        qs = super(UserTopics, self).get_queryset()
+        qs = super(BaseUserTopics, self).get_queryset()
         qs = qs.filter(user=self.user)
         qs = perms.filter_topics(self.user, qs)
         qs = qs.order_by('-updated', '-created')
         return qs
 
     def get_context_data(self, **kwargs):
-        context = super(UserTopics, self).get_context_data(**kwargs)
+        context = super(BaseUserTopics, self).get_context_data(**kwargs)
         context['target_user'] = self.user
         return context
 
 
-class PostView(RedirectToLoginMixin, generic.RedirectView):
+class BasePostView(RedirectToLoginMixin, generic.RedirectView):
 
     def get_login_redirect_url(self):
         return reverse('pybb:post', args=(self.kwargs['pk'],))
@@ -545,7 +575,7 @@ class PostView(RedirectToLoginMixin, generic.RedirectView):
         return '%s?page=%d#post-%d' % (reverse('pybb:topic', args=[post.topic.id]), page, post.id)
 
 
-class ModeratePost(generic.RedirectView):
+class BaseModeratePost(generic.RedirectView):
     def get_redirect_url(self, **kwargs):
         post = get_object_or_404(Post, pk=self.kwargs['pk'])
         if not perms.may_moderate_topic(self.request.user, post.topic):
@@ -555,7 +585,7 @@ class ModeratePost(generic.RedirectView):
         return post.get_absolute_url()
 
 
-class ProfileEditView(generic.UpdateView):
+class BaseProfileEditView(generic.UpdateView):
 
     template_name = 'pybb/edit_profile.html'
 
@@ -564,21 +594,20 @@ class ProfileEditView(generic.UpdateView):
 
     def get_form_class(self):
         if not self.form_class:
-            from pybb.forms import EditProfileForm
-            return EditProfileForm
+            return get_form('EditProfileForm')
         else:
-            return super(ProfileEditView, self).get_form_class()
+            return super(BaseProfileEditView, self).get_form_class()
 
     @method_decorator(login_required)
     @method_decorator(csrf_protect)
     def dispatch(self, request, *args, **kwargs):
-        return super(ProfileEditView, self).dispatch(request, *args, **kwargs)
+        return super(BaseProfileEditView, self).dispatch(request, *args, **kwargs)
 
     def get_success_url(self):
         return reverse('pybb:edit_profile')
 
 
-class DeletePostView(BreadcrumbMixin, generic.DeleteView):
+class BaseDeletePostView(BreadcrumbMixin, generic.DeleteView):
 
     template_name = 'pybb/delete_post.html'
     context_object_name = 'post'
@@ -614,7 +643,7 @@ class DeletePostView(BreadcrumbMixin, generic.DeleteView):
                 return ""
 
     def get_context_data(self, **kwargs):
-        ctx = super(DeletePostView, self).get_context_data(**kwargs)
+        ctx = super(BaseDeletePostView, self).get_context_data(**kwargs)
         self.update_breadcrumb_ctx(ctx)
         return ctx
 
@@ -631,7 +660,7 @@ class TopicActionBaseView(generic.View):
         return HttpResponseRedirect(self.topic.get_absolute_url())
 
 
-class StickTopicView(TopicActionBaseView):
+class BaseStickTopicView(TopicActionBaseView):
 
     def action(self, topic):
         if not perms.may_stick_topic(self.request.user, topic):
@@ -640,7 +669,7 @@ class StickTopicView(TopicActionBaseView):
         topic.save()
 
 
-class UnstickTopicView(TopicActionBaseView):
+class BaseUnstickTopicView(TopicActionBaseView):
 
     def action(self, topic):
         if not perms.may_unstick_topic(self.request.user, topic):
@@ -649,7 +678,7 @@ class UnstickTopicView(TopicActionBaseView):
         topic.save()
 
 
-class CloseTopicView(TopicActionBaseView):
+class BaseCloseTopicView(TopicActionBaseView):
 
     def action(self, topic):
         if not perms.may_close_topic(self.request.user, topic):
@@ -658,7 +687,7 @@ class CloseTopicView(TopicActionBaseView):
         topic.save()
 
 
-class OpenTopicView(TopicActionBaseView):
+class BaseOpenTopicView(TopicActionBaseView):
     def action(self, topic):
         if not perms.may_open_topic(self.request.user, topic):
             raise PermissionDenied
@@ -666,14 +695,14 @@ class OpenTopicView(TopicActionBaseView):
         topic.save()
 
 
-class TopicPollVoteView(BreadcrumbMixin, generic.UpdateView):
+class BaseTopicPollVoteView(BreadcrumbMixin, generic.UpdateView):
     model = Topic
     http_method_names = ['post', ]
     form_class = PollForm
 
     @method_decorator(login_required)
     def dispatch(self, request, *args, **kwargs):
-        return super(TopicPollVoteView, self).dispatch(request, *args, **kwargs)
+        return super(BaseTopicPollVoteView, self).dispatch(request, *args, **kwargs)
 
     def get_form_kwargs(self):
         kwargs = super(ModelFormMixin, self).get_form_kwargs()
@@ -702,7 +731,7 @@ class TopicPollVoteView(BreadcrumbMixin, generic.UpdateView):
         return self.object.get_absolute_url()
 
     def get_context_data(self, **kwargs):
-        ctx = super(TopicPollVoteView, self).get_context_data(**kwargs)
+        ctx = super(BaseTopicPollVoteView, self).get_context_data(**kwargs)
         self.update_breadcrumb_ctx(ctx)
         return ctx
 

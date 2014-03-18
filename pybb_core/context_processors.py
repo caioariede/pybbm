@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 from __future__ import unicode_literals
-from pybb import defaults
+from pybb_core import defaults
 
 __author__ = 'zeus'
 

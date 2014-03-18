@@ -3,7 +3,11 @@ from django.utils.timezone import now, timedelta
 from django.core.management.base import BaseCommand, CommandError
 from django.db.models import Count
 
-from pybb.models import Topic
+from pybb_core.loading import get_model
+
+
+Topic = get_model('Topic')
+
 
 class Command(BaseCommand):
     help = 'Resave all posts.'

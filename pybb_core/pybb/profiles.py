@@ -3,8 +3,8 @@ import functools
 from django.conf import settings
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
-from pybb import defaults
-from pybb.util import get_file_path
+from pybb_core import defaults
+from pybb_core.util import get_file_path
 
 try:
     from sorl.thumbnail import ImageField
