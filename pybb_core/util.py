@@ -5,6 +5,7 @@ import re
 import uuid
 import django
 from django.utils.translation import ugettext as _
+from pybb_core.loading import get_class
 
 
 def unescape(text):
@@ -34,13 +35,7 @@ def rstrip_str(user, str):
 
 
 def get_user_model():
-    if django.VERSION[:2] >= (1, 5):
-        from django.contrib.auth import get_user_model
-        return get_user_model()
-    else:
-        from django.contrib.auth.models import User
-        User.get_username = lambda u: u.username  # emulate new 1.5 method
-        return User
+    return get_class('user', 'User')
 
 
 def get_username_field():
