@@ -122,7 +122,86 @@ class BreadcrumbMixin(object):
             return ctx.get(obj_name)
 
 
-class BaseIndexView(generic.ListView):
+class PermissionsMixin(object):
+    """ mixin that wraps all permission calls so they can be intercepted
+    and changed easily. it can be used to create custom permission
+    verifications based on the request, for example.
+    """
+
+    # Filtering
+    def perms_filter_forums(self, user, qs):
+        return perms.filter_forums(user, qs)
+
+    def perms_filter_categories(self, user, qs):
+        return perms.filter_categories(user, qs)
+
+    def perms_filter_topics(self, user, qs):
+        return perms.filter_topics(user, qs)
+
+    def perms_filter_posts(self, user, qs):
+        return perms.filter_posts(user, qs)
+
+    # Forums
+    def perms_may_view_forum(self, user, forum):
+        return perms.may_view_forum(user, forum)
+
+    # Categories
+    def perms_may_view_category(self, user, category):
+        return perms.may_view_category(user, category)
+
+    # Topics
+    def perms_may_view_topic(self, user, topic):
+        return perms.may_view_topic(user, topic)
+
+    def perms_may_moderate_topic(self, user, topic):
+        return perms.may_moderate_topic(user, topic)
+
+    def perms_may_vote_in_topic(self, user, topic):
+        return perms.may_vote_in_topic(user, topic)
+
+    def perms_may_create_topic(self, user, forum):
+        return perms.may_create_topic(user, forum)
+
+    def perms_may_stick_topic(self, user, topic):
+        return perms.may_stick_topic(user, topic)
+
+    def perms_may_unstick_topic(self, user, topic):
+        return perms.may_unstick_topic(user, topic)
+
+    def perms_may_close_topic(self, user, topic):
+        return perms.may_close_topic(user, topic)
+
+    def perms_may_open_topic(self, user, topic):
+        return perms.may_open_topic(user, topic)
+
+    def perms_may_create_poll(self, user):
+        return perms.may_create_poll(user)
+
+    # Posts
+    def perms_may_post_as_admin(self, user):
+        return perms.may_post_as_admin(user)
+
+    def perms_may_create_post(self, user, topic):
+        return perms.may_create_post(user, topic)
+
+    def perms_may_edit_post(self, user, topic):
+        return perms.may_edit_post(user, topic)
+
+    def perms_may_view_post(self, user, post):
+        return perms.may_view_post(user, post)
+
+    def perms_may_delete_post(self, user, post):
+        return perms.may_delete_post(user, post)
+
+    def perms_may_attach_files(self, user):
+        return perms.may_attach_files(user)
+
+    # Users
+    def perms_may_block_user(self, user, block_user):
+        return perms.may_block_user(user, block_user)
+
+
+class BaseIndexView(PermissionsMixin, generic.ListView):
 
     template_name = 'pybb/index.html'
     context_object_name = 'categories'
@@ -131,15 +210,15 @@ class BaseIndexView(generic.ListView):
         ctx = super(BaseIndexView, self).get_context_data(**kwargs)
         categories = ctx['categories']
         for category in categories:
-            category.forums_accessed = perms.filter_forums(self.request.user, category.forums.filter(parent=None))
+            category.forums_accessed = self.perms_filter_forums(self.request.user, category.forums.filter(parent=None))
         ctx['categories'] = categories
         return ctx
 
     def get_queryset(self):
-        return perms.filter_categories(self.request.user, Category.objects.all())
+        return self.perms_filter_categories(self.request.user, Category.objects.all())
 
 
-class BaseCategoryView(RedirectToLoginMixin, BreadcrumbMixin, generic.DetailView):
+class BaseCategoryView(PermissionsMixin, RedirectToLoginMixin, BreadcrumbMixin, generic.DetailView):
 
     template_name = 'pybb/index.html'
     context_object_name = 'category'
@@ -152,19 +231,19 @@ class BaseCategoryView(RedirectToLoginMixin, BreadcrumbMixin, generic.DetailView
 
     def get_object(self, queryset=None):
         obj = super(BaseCategoryView, self).get_object(queryset)
-        if not perms.may_view_category(self.request.user, obj):
+        if not self.perms_may_view_category(self.request.user, obj):
             raise PermissionDenied
         return obj
 
     def get_context_data(self, **kwargs):
         ctx = super(BaseCategoryView, self).get_context_data(**kwargs)
-        ctx['category'].forums_accessed = perms.filter_forums(self.request.user, ctx['category'].forums.filter(parent=None))
+        ctx['category'].forums_accessed = self.perms_filter_forums(self.request.user, ctx['category'].forums.filter(parent=None))
         ctx['categories'] = [ctx['category']]
         self.update_breadcrumb_ctx(ctx)
         return ctx
 
 
-class BaseForumView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.ListView):
+class BaseForumView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.ListView):
 
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
@@ -177,21 +256,21 @@ class BaseForumView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, gener
     def get_context_data(self, **kwargs):
         ctx = super(BaseForumView, self).get_context_data(**kwargs)
         ctx['forum'] = self.forum
-        ctx['forum'].forums_accessed = perms.filter_forums(self.request.user, self.forum.child_forums.all())
+        ctx['forum'].forums_accessed = self.perms_filter_forums(self.request.user, self.forum.child_forums.all())
         self.update_breadcrumb_ctx(ctx)
         return ctx
 
     def get_queryset(self):
         self.forum = get_object_or_404(Forum.objects.all(), pk=self.kwargs['pk'])
-        if not perms.may_view_forum(self.request.user, self.forum):
+        if not self.perms_may_view_forum(self.request.user, self.forum):
             raise PermissionDenied
 
         qs = self.forum.topics.order_by('-sticky', '-updated').select_related()
-        qs = perms.filter_topics(self.request.user, qs)
+        qs = self.perms_filter_topics(self.request.user, qs)
         return qs
 
 
-class BaseLatestTopicsView(PaginatorMixin, generic.ListView):
+class BaseLatestTopicsView(PermissionsMixin, PaginatorMixin, generic.ListView):
 
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     context_object_name = 'topic_list'
@@ -199,11 +278,11 @@ class BaseLatestTopicsView(PaginatorMixin, generic.ListView):
 
     def get_queryset(self):
         qs = Topic.objects.all().select_related()
-        qs = perms.filter_topics(self.request.user, qs)
+        qs = self.perms_filter_topics(self.request.user, qs)
         return qs.order_by('-updated')
 
 
-class BaseTopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.ListView):
+class BaseTopicView(PermissionsMixin, RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, generic.ListView):
     paginate_by = defaults.PYBB_TOPIC_PAGE_SIZE
     template_object_name = 'post_list'
     template_name = 'pybb/topic.html'
@@ -258,7 +337,7 @@ class BaseTopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, gener
         return super(BaseTopicView, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        if not perms.may_view_topic(self.request.user, self.topic):
+        if not self.perms_may_view_topic(self.request.user, self.topic):
             raise PermissionDenied
         if self.request.user.is_authenticated() or not defaults.PYBB_ANONYMOUS_VIEWS_CACHE_BUFFER:
             Topic.objects.filter(id=self.topic.id).update(views=F('views') + 1)
@@ -272,17 +351,17 @@ class BaseTopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, gener
         qs = self.topic.posts.all().select_related('user')
         if defaults.PYBB_PROFILE_RELATED_NAME:
             qs = qs.select_related('user__%s' % defaults.PYBB_PROFILE_RELATED_NAME)
-        if not perms.may_moderate_topic(self.request.user, self.topic):
-            qs = perms.filter_posts(self.request.user, qs)
+        if not self.perms_may_moderate_topic(self.request.user, self.topic):
+            qs = self.perms_filter_posts(self.request.user, qs)
         return qs
 
     def get_context_data(self, **kwargs):
         ctx = super(BaseTopicView, self).get_context_data(**kwargs)
 
         if self.request.user.is_authenticated():
-            self.request.user.is_moderator = perms.may_moderate_topic(self.request.user, self.topic)
+            self.request.user.is_moderator = self.perms_may_moderate_topic(self.request.user, self.topic)
             self.request.user.is_subscribed = self.request.user in self.topic.subscribers.all()
-            if perms.may_post_as_admin(self.request.user):
+            if self.perms_may_post_as_admin(self.request.user):
                 ctx['form'] = self.get_admin_post_form_class()(
                     initial={'login': getattr(self.request.user, username_field)},
                     topic=self.topic)
@@ -294,7 +373,7 @@ class BaseTopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, gener
         else:
             ctx['form'] = None
             ctx['next'] = self.get_login_redirect_url()
-        if perms.may_attach_files(self.request.user):
+        if self.perms_may_attach_files(self.request.user):
             aformset = self.get_attachment_formset_class()()
             ctx['aformset'] = aformset
         if defaults.PYBB_FREEZE_FIRST_POST:
@@ -303,7 +382,7 @@ class BaseTopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, gener
             ctx['first_post'] = None
         ctx['topic'] = self.topic
 
-        if perms.may_vote_in_topic(self.request.user, self.topic) and \
+        if self.perms_may_vote_in_topic(self.request.user, self.topic) and \
                 pybb_topic_poll_not_voted(self.topic, self.request.user):
             ctx['poll_form'] = self.get_poll_form_class()(self.topic)
 
@@ -337,7 +416,7 @@ class BaseTopicView(RedirectToLoginMixin, PaginatorMixin, BreadcrumbMixin, gener
                 forum_mark.save()
 
 
-class PostEditMixin(object):
+class PostEditMixin(PermissionsMixin):
 
     poll_answer_formset_class = PollAnswerFormSet
 
@@ -345,16 +424,16 @@ class PostEditMixin(object):
         return self.poll_answer_formset_class
 
     def get_form_class(self):
-        if perms.may_post_as_admin(self.request.user):
+        if self.perms_may_post_as_admin(self.request.user):
             return AdminPostForm
         else:
             return PostForm
 
     def get_context_data(self, **kwargs):
         ctx = super(PostEditMixin, self).get_context_data(**kwargs)
-        if perms.may_attach_files(self.request.user) and (not 'aformset' in kwargs):
+        if self.perms_may_attach_files(self.request.user) and (not 'aformset' in kwargs):
             ctx['aformset'] = AttachmentFormSet(instance=self.object if getattr(self, 'object') else None)
-        if perms.may_create_poll(self.request.user) and ('pollformset' not in kwargs):
+        if self.perms_may_create_poll(self.request.user) and ('pollformset' not in kwargs):
             ctx['pollformset'] = self.get_poll_answer_formset_class()(
                 instance=self.object.topic if getattr(self, 'object') else None
             )
@@ -366,7 +445,7 @@ class PostEditMixin(object):
         save_poll_answers = False
         self.object = form.save(commit=False)
 
-        if perms.may_attach_files(self.request.user):
+        if self.perms_may_attach_files(self.request.user):
             aformset = AttachmentFormSet(self.request.POST, self.request.FILES, instance=self.object)
             if aformset.is_valid():
                 save_attachments = True
@@ -375,7 +454,7 @@ class PostEditMixin(object):
         else:
             aformset = None
 
-        if perms.may_create_poll(self.request.user):
+        if self.perms_may_create_poll(self.request.user):
             pollformset = self.get_poll_answer_formset_class()()
             if getattr(self, 'forum', None) or self.object.topic.head == self.object:
                 if self.object.topic.poll_type != Topic.POLL_TYPE_NONE:
@@ -423,12 +502,12 @@ class BaseAddPostView(PostEditMixin, BreadcrumbMixin, generic.CreateView):
         self.forum = None
         self.topic = None
         if 'forum_id' in kwargs:
-            self.forum = get_object_or_404(perms.filter_forums(request.user, Forum.objects.all()), pk=kwargs['forum_id'])
-            if not perms.may_create_topic(self.user, self.forum):
+            self.forum = get_object_or_404(self.perms_filter_forums(self.request.user, Forum.objects.all()), pk=kwargs['forum_id'])
+            if not self.perms_may_create_topic(self.user, self.forum):
                 raise PermissionDenied
         elif 'topic_id' in kwargs:
-            self.topic = get_object_or_404(perms.filter_topics(request.user, Topic.objects.all()), pk=kwargs['topic_id'])
-            if not perms.may_create_post(self.user, self.topic):
+            self.topic = get_object_or_404(self.perms_filter_topics(self.request.user, Topic.objects.all()), pk=kwargs['topic_id'])
+            if not self.perms_may_create_post(self.user, self.topic):
                 raise PermissionDenied
 
             self.quote = ''
@@ -452,9 +531,9 @@ class BaseAddPostView(PostEditMixin, BreadcrumbMixin, generic.CreateView):
                            ip=ip, initial={}))
         if getattr(self, 'quote', None):
             form_kwargs['initial']['body'] = self.quote
-        if perms.may_post_as_admin(self.user):
+        if self.perms_may_post_as_admin(self.user):
             form_kwargs['initial']['login'] = getattr(self.user, username_field)
-        form_kwargs['may_create_poll'] = perms.may_create_poll(self.user)
+        form_kwargs['may_create_poll'] = self.perms_may_create_poll(self.user)
         return form_kwargs
 
     def get_context_data(self, **kwargs):
@@ -484,12 +563,12 @@ class BaseEditPostView(PostEditMixin, BreadcrumbMixin, generic.UpdateView):
 
     def get_form_kwargs(self):
         form_kwargs = super(BaseEditPostView, self).get_form_kwargs()
-        form_kwargs['may_create_poll'] = perms.may_create_poll(self.request.user)
+        form_kwargs['may_create_poll'] = self.perms_may_create_poll(self.request.user)
         return form_kwargs
 
     def get_object(self, queryset=None):
         post = super(BaseEditPostView, self).get_object(queryset)
-        if not perms.may_edit_post(self.request.user, post):
+        if not self.perms_may_edit_post(self.request.user, post):
             raise PermissionDenied
         return post
 
@@ -499,7 +578,7 @@ class BaseEditPostView(PostEditMixin, BreadcrumbMixin, generic.UpdateView):
         return ctx
 
 
-class BaseUserView(generic.DetailView):
+class BaseUserView(PermissionsMixin, generic.DetailView):
     model = User
     template_name = 'pybb/user.html'
     context_object_name = 'target_user'
@@ -515,7 +594,7 @@ class BaseUserView(generic.DetailView):
         return ctx
 
 
-class BaseUserPosts(PaginatorMixin, generic.ListView):
+class BaseUserPosts(PermissionsMixin, PaginatorMixin, generic.ListView):
     model = Post
     paginate_by = defaults.PYBB_TOPIC_PAGE_SIZE
     template_name = 'pybb/user_posts.html'
@@ -528,7 +607,7 @@ class BaseUserPosts(PaginatorMixin, generic.ListView):
     def get_queryset(self):
         qs = super(BaseUserPosts, self).get_queryset()
         qs = qs.filter(user=self.user)
-        qs = perms.filter_posts(self.request.user, qs).select_related('topic')
+        qs = self.perms_filter_posts(self.request.user, qs).select_related('topic')
         qs = qs.order_by('-created', '-updated')
         return qs
 
@@ -538,7 +617,7 @@ class BaseUserPosts(PaginatorMixin, generic.ListView):
         return context
 
 
-class BaseUserTopics(PaginatorMixin, generic.ListView):
+class BaseUserTopics(PermissionsMixin, PaginatorMixin, generic.ListView):
     model = Topic
     paginate_by = defaults.PYBB_FORUM_PAGE_SIZE
     template_name = 'pybb/user_topics.html'
@@ -551,7 +630,7 @@ class BaseUserTopics(PaginatorMixin, generic.ListView):
     def get_queryset(self):
         qs = super(BaseUserTopics, self).get_queryset()
         qs = qs.filter(user=self.user)
-        qs = perms.filter_topics(self.user, qs)
+        qs = self.perms_filter_topics(self.user, qs)
         qs = qs.order_by('-updated', '-created')
         return qs
 
@@ -561,24 +640,24 @@ class BaseUserTopics(PaginatorMixin, generic.ListView):
         return context
 
 
-class BasePostView(RedirectToLoginMixin, generic.RedirectView):
+class BasePostView(PermissionsMixin, RedirectToLoginMixin, generic.RedirectView):
 
     def get_login_redirect_url(self):
         return reverse('pybb:post', args=(self.kwargs['pk'],))
 
     def get_redirect_url(self, **kwargs):
         post = get_object_or_404(Post.objects.all(), pk=self.kwargs['pk'])
-        if not perms.may_view_post(self.request.user, post):
+        if not self.perms_may_view_post(self.request.user, post):
             raise PermissionDenied
         count = post.topic.posts.filter(created__lt=post.created).count() + 1
         page = math.ceil(count / float(defaults.PYBB_TOPIC_PAGE_SIZE))
         return '%s?page=%d#post-%d' % (reverse('pybb:topic', args=[post.topic.id]), page, post.id)
 
 
-class BaseModeratePost(generic.RedirectView):
+class BaseModeratePost(PermissionsMixin, generic.RedirectView):
     def get_redirect_url(self, **kwargs):
         post = get_object_or_404(Post, pk=self.kwargs['pk'])
-        if not perms.may_moderate_topic(self.request.user, post.topic):
+        if not self.perms_may_moderate_topic(self.request.user, post.topic):
             raise PermissionDenied
         post.on_moderation = False
         post.save()
@@ -607,18 +686,18 @@ class BaseProfileEditView(generic.UpdateView):
         return reverse('pybb:edit_profile')
 
 
-class BaseDeletePostView(BreadcrumbMixin, generic.DeleteView):
+class BaseDeletePostView(PermissionsMixin, BreadcrumbMixin, generic.DeleteView):
 
     template_name = 'pybb/delete_post.html'
     context_object_name = 'post'
 
     def get_object(self, queryset=None):
         post = get_object_or_404(Post.objects.select_related('topic', 'topic__forum'), pk=self.kwargs['pk'])
-        if not perms.may_delete_post(self.request.user, post):
+        if not self.perms_may_delete_post(self.request.user, post):
             raise PermissionDenied
         self.topic = post.topic
         self.forum = post.topic.forum
-        if not perms.may_moderate_topic(self.request.user, self.topic):
+        if not self.perms_may_moderate_topic(self.request.user, self.topic):
             raise PermissionDenied
         return post
 
@@ -648,7 +727,7 @@ class BaseDeletePostView(BreadcrumbMixin, generic.DeleteView):
         return ctx
 
 
-class TopicActionBaseView(generic.View):
+class TopicActionBaseView(PermissionsMixin, generic.View):
 
     def get_topic(self):
         return get_object_or_404(Topic, pk=self.kwargs['pk'])
@@ -663,7 +742,7 @@ class TopicActionBaseView(generic.View):
 class BaseStickTopicView(TopicActionBaseView):
 
     def action(self, topic):
-        if not perms.may_stick_topic(self.request.user, topic):
+        if not self.perms_may_stick_topic(self.request.user, topic):
             raise PermissionDenied
         topic.sticky = True
         topic.save()
@@ -672,7 +751,7 @@ class BaseStickTopicView(TopicActionBaseView):
 class BaseUnstickTopicView(TopicActionBaseView):
 
     def action(self, topic):
-        if not perms.may_unstick_topic(self.request.user, topic):
+        if not self.perms_may_unstick_topic(self.request.user, topic):
             raise PermissionDenied
         topic.sticky = False
         topic.save()
@@ -681,7 +760,7 @@ class BaseUnstickTopicView(TopicActionBaseView):
 class BaseCloseTopicView(TopicActionBaseView):
 
     def action(self, topic):
-        if not perms.may_close_topic(self.request.user, topic):
+        if not self.perms_may_close_topic(self.request.user, topic):
             raise PermissionDenied
         topic.closed = True
         topic.save()
@@ -689,13 +768,13 @@ class BaseCloseTopicView(TopicActionBaseView):
 
 class BaseOpenTopicView(TopicActionBaseView):
     def action(self, topic):
-        if not perms.may_open_topic(self.request.user, topic):
+        if not self.perms_may_open_topic(self.request.user, topic):
             raise PermissionDenied
         topic.closed = False
         topic.save()
 
 
-class BaseTopicPollVoteView(BreadcrumbMixin, generic.UpdateView):
+class BaseTopicPollVoteView(PermissionsMixin, BreadcrumbMixin, generic.UpdateView):
     model = Topic
     http_method_names = ['post', ]
     form_class = PollForm
@@ -711,7 +790,7 @@ class BaseTopicPollVoteView(BreadcrumbMixin, generic.UpdateView):
 
     def form_valid(self, form):
         # already voted
-        if not perms.may_vote_in_topic(self.request.user, self.object) or \
+        if not self.perms_may_vote_in_topic(self.request.user, self.object) or \
            not pybb_topic_poll_not_voted(self.object, self.request.user):
             return HttpResponseForbidden()
 
