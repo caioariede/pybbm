@@ -17,10 +17,9 @@ from django.utils.timezone import now as tznow
 
 from annoying.fields import AutoOneToOneField
 
-from pybb.util import unescape, get_user_model, get_username_field, get_pybb_profile_model, get_pybb_profile, get_file_path
+from pybb.util import unescape, get_user_model, get_pybb_profile_model, get_pybb_profile, get_file_path
 
 User = get_user_model()
-username_field = get_username_field()
 
 try:
     from hashlib import sha1
@@ -336,7 +335,8 @@ class Profile(PybbProfile):
         verbose_name_plural = _('Profiles')
 
     def get_absolute_url(self):
-        return reverse('pybb:user', kwargs={'username': getattr(self.user, username_field)})
+        return reverse('pybb:user', kwargs={
+            'username': getattr(self.user, defaults.PYBB_USER_LOOKUP_PARAM)})
 
 
 class Attachment(models.Model):
