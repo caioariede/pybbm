@@ -454,7 +454,7 @@ class BaseUserView(PermissionsMixin, generic.DetailView):
     def get_object(self, queryset=None):
         if queryset is None:
             queryset = self.get_queryset()
-        return get_object_or_404(queryset, **{username_field: self.kwargs['username']})
+        return get_object_or_404(queryset, **{defaults.PYBB_USER_LOOKUP_PARAM: self.kwargs['username']})
 
     def get_context_data(self, **kwargs):
         ctx = super(BaseUserView, self).get_context_data(**kwargs)
@@ -469,7 +469,7 @@ class BaseUserPosts(PermissionsMixin, PaginatorMixin, generic.ListView):
 
     def dispatch(self, request, *args, **kwargs):
         username = kwargs.pop('username')
-        self.user = get_object_or_404(**{'klass': User, username_field: username})
+        self.user = get_object_or_404(**{'klass': User, defaults.PYBB_USER_LOOKUP_PARAM: username})
         return super(BaseUserPosts, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -492,7 +492,8 @@ class BaseUserTopics(PermissionsMixin, PaginatorMixin, generic.ListView):
 
     def dispatch(self, request, *args, **kwargs):
         username = kwargs.pop('username')
-        self.user = get_object_or_404(User, username=username)
+        self.user = get_object_or_404(User, **{
+            defaults.PYBB_USER_LOOKUP_PARAM: username})
         return super(BaseUserTopics, self).dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
@@ -725,7 +726,7 @@ def mark_all_as_read(request):
 @login_required
 @require_POST
 def block_user(request, username):
-    user = get_object_or_404(User, **{username_field: username})
+    user = get_object_or_404(User, **{defaults.PYBB_USER_LOOKUP_PARAM: username})
     if not perms.may_block_user(request.user, user):
         raise PermissionDenied
     user.is_active = False
@@ -745,7 +746,7 @@ def block_user(request, username):
 @login_required
 @require_POST
 def unblock_user(request, username):
-    user = get_object_or_404(User, **{username_field: username})
+    user = get_object_or_404(User, **{defaults.PYBB_USER_LOOKUP_PARAM: username})
     if not perms.may_block_user(request.user, user):
         raise PermissionDenied
     user.is_active = True

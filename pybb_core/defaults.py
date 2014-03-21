@@ -5,7 +5,7 @@ import os.path
 
 from django.conf import settings
 
-from pybb_core.util import filter_blanks, rstrip_str
+from pybb_core.util import filter_blanks, rstrip_str, get_username_field
 
 
 PYBB_TOPIC_PAGE_SIZE = getattr(settings, 'PYBB_TOPIC_PAGE_SIZE', 10)
@@ -102,3 +102,5 @@ PYBB_USE_DJANGO_MAILER = getattr(settings, 'PYBB_USE_DJANGO_MAILER', False)
 PYBB_PERMISSION_HANDLER = getattr(settings, 'PYBB_PERMISSION_HANDLER', 'pybb_core.permissions.DefaultPermissionHandler')
 
 PYBB_PROFILE_RELATED_NAME = getattr(settings, 'PYBB_PROFILE_RELATED_NAME', 'pybb_profile')
+
+PYBB_USER_LOOKUP_PARAM = getattr(settings, 'PYBB_USER_LOOKUP_PARAM', get_username_field())

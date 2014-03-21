@@ -12,13 +12,12 @@ from django.utils.timezone import now as tznow
 
 from annoying.fields import AutoOneToOneField
 
-from pybb_core.util import unescape, get_user_model, get_username_field, get_file_path
+from pybb_core.util import unescape, get_user_model, get_file_path
 from pybb_core.loading import get_model, get_class
 
 PybbProfile = get_class('profiles', 'PybbProfile')
 
 User = get_user_model()
-username_field = get_username_field()
 
 try:
     from south.modelsinspector import add_introspection_rules
@@ -345,7 +344,8 @@ class AbstractProfile(PybbProfile):
         abstract = True
 
     def get_absolute_url(self):
-        return reverse('pybb:user', kwargs={'username': getattr(self.user, username_field)})
+        return reverse('pybb:user', kwargs={
+            'username': getattr(self.user, defaults.PYBB_USER_LOOKUP_PARAM)})
 
 
 class AbstractAttachment(models.Model):
