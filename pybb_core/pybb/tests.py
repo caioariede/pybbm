@@ -16,7 +16,7 @@ from django.test import TestCase
 from django.test.client import Client
 from django.test.utils import override_settings
 from pybb_core import permissions
-from pybb_core import base_views as pybb_views
+from pybb_core.pybb import mixins
 from pybb_core.templatetags.pybb_tags import pybb_is_topic_unread, pybb_topic_unread, pybb_forum_unread, \
     pybb_get_latest_topics, pybb_get_latest_posts
 
@@ -1513,14 +1513,14 @@ def _attach_perms_class(class_name):
     permissions.perms is already imported at import point, instead we got to monkeypatch
     the modules (not really nice, but only an issue in tests)
     """
-    pybb_views.perms = permissions.perms = permissions._resolve_class(class_name)
+    mixins.perms = permissions.perms = permissions._resolve_class(class_name)
 
 
 def _detach_perms_class():
     """
     reset permission handler (otherwise other tests may fail)
     """
-    pybb_views.perms = permissions.perms = permissions._resolve_class('pybb_core.permissions.DefaultPermissionHandler')
+    mixins.perms = permissions.perms = permissions._resolve_class('pybb_core.permissions.DefaultPermissionHandler')
 
 
 class CustomPermissionHandlerTest(TestCase, SharedTestModule):
