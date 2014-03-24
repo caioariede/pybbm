@@ -1,1 +1,1 @@
-{{ obj.head.user }}: {{ obj|safe }} @ {{ obj.forum|safe }} 
+{% load pybb_tags %}{% pybb_user_display obj.head.user %}: {{ obj|safe }} @ {{ obj.forum|safe }} 

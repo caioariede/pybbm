@@ -68,6 +68,8 @@ def _render_quote(name, value, options, parent, context):
     return '<blockquote>%s%s</blockquote>' % (origin_author_html, value)
 bbcode_parser.add_formatter('quote', _render_quote, strip=True, swallow_trailing_newline=True)
 
+PYBB_USER_DISPLAY = getattr(settings, 'PYBB_USER_DISPLAY',
+                            lambda ctx, user: unicode(user))
 
 PYBB_MARKUP_ENGINES = getattr(settings, 'PYBB_MARKUP_ENGINES', {
     'bbcode': lambda str: smile_it(bbcode_parser.format(str)),

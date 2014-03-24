@@ -39,6 +39,11 @@ TopicReadTracker, ForumReadTracker, PollAnswerUser, Topic, Post = get_models([
 register = template.Library()
 
 
+@register.simple_tag(takes_context=True)
+def pybb_user_display(context, user):
+    return defaults.PYBB_USER_DISPLAY(context, user)
+
+
 #noinspection PyUnusedLocal
 @register.tag
 def pybb_time(parser, token):
