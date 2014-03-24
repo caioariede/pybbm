@@ -10,7 +10,7 @@
 
 {% block content %}
     {% pybb_get_profile target_user as target_profile %}
-    <h1>{% trans "All posts created by" %} <a href="{{ target_profile.get_absolute_url }}">{{ target_user.get_username }}</a></h1>
+    <h1>{% trans "All posts created by" %} <a href="{{ target_profile.get_absolute_url }}">{% pybb_user_display target_user %}</a></h1>
     <div class="userinfo">
         {% include "pybb/pagination.html" %}
 
