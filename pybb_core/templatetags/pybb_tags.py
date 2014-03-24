@@ -239,7 +239,7 @@ def pybb_get_profile(*args, **kwargs):
 
 @register.assignment_tag(takes_context=True)
 def pybb_get_latest_topics(context, cnt=5, user=None):
-    qs = Topic.objects.all().order_by('-updated', '-created')
+    qs = Topic.objects.all().order_by('-updated', '-created', '-id')
     if not user:
         user = context['user']
     qs = perms.filter_topics(user, qs)
@@ -248,7 +248,7 @@ def pybb_get_latest_topics(context, cnt=5, user=None):
 
 @register.assignment_tag(takes_context=True)
 def pybb_get_latest_posts(context, cnt=5, user=None):
-    qs = Post.objects.all().order_by('-created')
+    qs = Post.objects.all().order_by('-created', '-id')
     if not user:
         user = context['user']
     qs = perms.filter_posts(user, qs)
