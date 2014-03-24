@@ -389,7 +389,7 @@ class AddPostView(PostEditMixin, generic.CreateView):
         return super(AddPostView, self).dispatch(request, *args, **kwargs)
 
     def get_quoted_post(self, post):
-        return defaults.PYBB_QUOTE_ENGINES[defaults.PYBB_MARKUP](post.body, defaults.PYBB_USER_DISPLAY(post.user))
+        return defaults.PYBB_QUOTE_ENGINES[defaults.PYBB_MARKUP](post.body, defaults.PYBB_USER_DISPLAY({}, post.user))
 
     def get_form_kwargs(self):
         ip = self.request.META.get('REMOTE_ADDR', '')
