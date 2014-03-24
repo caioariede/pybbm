@@ -91,7 +91,7 @@
             <div class="subscriber-list">
                 {% trans "Subscribers" %}:
                 {% for subscriber in topic.subscribers.all %}
-                    <a href="{% url 'pybb:user' subscriber.username %}">{{ subscriber.username }}</a>,
+                    <a href="{% url 'pybb:user' subscriber.username %}">{% pybb_user_display subscriber.username %}</a>,
                 {% endfor %}
             </div>
         {% endif %}

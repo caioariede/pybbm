@@ -382,11 +382,14 @@ class AddPostView(PostEditMixin, generic.CreateView):
                     raise Http404
                 else:
                     post = get_object_or_404(Post, pk=quote_id)
-                    self.quote = defaults.PYBB_QUOTE_ENGINES[defaults.PYBB_MARKUP](post.body, getattr(post.user, username_field))
+                    self.quote = self.get_quoted_post(post)
 
                 if self.quote and request.is_ajax():
                     return HttpResponse(self.quote)
         return super(AddPostView, self).dispatch(request, *args, **kwargs)
+
+    def get_quoted_post(self, post):
+        return defaults.PYBB_QUOTE_ENGINES[defaults.PYBB_MARKUP](post.body, defaults.PYBB_USER_DISPLAY(post.user))
 
     def get_form_kwargs(self):
         ip = self.request.META.get('REMOTE_ADDR', '')
