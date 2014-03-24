@@ -40,8 +40,8 @@ register = template.Library()
 
 
 @register.simple_tag(takes_context=True)
-def pybb_user_display(context, user):
-    return defaults.PYBB_USER_DISPLAY(context, user)
+def pybb_user_display(context, user, *args, **kwargs):
+    return defaults.PYBB_USER_DISPLAY(context, user, *args, **kwargs)
 
 
 #noinspection PyUnusedLocal
