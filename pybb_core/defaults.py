@@ -106,3 +106,5 @@ PYBB_PERMISSION_HANDLER = getattr(settings, 'PYBB_PERMISSION_HANDLER', 'pybb_cor
 PYBB_PROFILE_RELATED_NAME = getattr(settings, 'PYBB_PROFILE_RELATED_NAME', 'pybb_profile')
 
 PYBB_USER_LOOKUP_PARAM = getattr(settings, 'PYBB_USER_LOOKUP_PARAM', get_username_field())
+
+PYBB_INITIAL_CUSTOM_USER_MIGRATION = getattr(settings, 'PYBB_INITIAL_CUSTOM_USER_MIGRATION', getattr(settings, 'INITIAL_CUSTOM_USER_MIGRATION', None))
