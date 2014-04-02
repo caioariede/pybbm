@@ -370,5 +370,6 @@ def if_has_tag(parser, token):
 def pybbm_calc_topic_views(topic):
     cache_key = build_cache_key('anonymous_topic_views', topic_id=topic.id)
     cache_val = cache.get(cache_key, 0)
-    topic_views = topic.views
-    return topic_views + cache_val
+    if isinstance(cache_val, basestring) and cache_val.isdigit():
+        cache_val = int(cache_val)
+    return topic.views + cache_val
